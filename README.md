@@ -6,4 +6,8 @@ Make sure you already install nodejs.
 
 Plug in tessel2 with climate module and audio module.
 
-Simply type "t2 run TempAlert.js" will do.
+For Output experiment,
+simply type "t2 run TempAlert.js" will do.
+
+For Input experiment,
+type "t2 run climate.js".
