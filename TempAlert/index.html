@@ -1,0 +1,124 @@
+<!-- Include the PubNub libraries -->
+<script src="https://cdn.pubnub.com/pubnub.min.js"></script>
+<script src="https://cdn.pubnub.com/pubnub-crypto.min.js"></script>
+
+<script src="http://cdn.pubnub.com/pubnub.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.0.8/angular.min.js"></script>
+<script src="http://pubnub.github.io/angular-js/scripts/pubnub-angular.js"></script>
+
+<link href="nv.d3.css" rel="stylesheet" type="text/css">
+
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
+<script src="nv.d3.js"></script>
+
+<script src="legend.js"></script>
+
+<script src="line.js"></script>
+
+<script src="utils.js"></script>
+
+<style>
+body {
+  overflow-y:scroll;
+}
+</style>
+
+<svg id="graph"></svg>
+
+<div class="container" ng-app="PubNubAngularApp" ng-controller="ChatCtrl">
+
+<script> angular.module('PubNubAngularApp', ["pubnub.angular.service"]) .controller('ChatCtrl', function($rootScope, $scope, $location, PubNub) { $scope.devices = {};
+
+  $scope.channel = 'climate-monitor';
+
+  if (!$rootScope.initialized) {
+    // Initialize the PubNub service
+    PubNub.init({
+      subscribe_key: 'sub-c-69141b3e-3173-11e7-bb5c-02ee2ddab7fe',
+      publish_key: 'pub-c-e44b1f01-85de-4fa4-bbdd-9819a27ca3c1'
+    });
+    $rootScope.initialized = true;
+  }
+
+  var times_now = [];
+  var temperatures = [];
+  var humidities = [];
+
+  PubNub.ngSubscribe({ channel: $scope.channel });
+  $rootScope.$on(PubNub.ngMsgEv($scope.channel), function(ngEvent, payload) {
+    $scope.$apply(function() {
+      if (payload.message.uuid) {
+
+          $scope.devices[payload.message.uuid] = payload.message;
+          $scope.time_now = Date.now();
+          times_now.push($scope.time_now)
+          $scope.temperature = payload.message.temperature[1];
+          temperatures.push($scope.temperature)
+          $scope.humidity = payload.message.humidity[1];
+          humidities.push($scope.humidity)
+
+          nv.addGraph({
+            generate: function() {
+              var width = nv.utils.windowSize().width - 40,
+                  height = nv.utils.windowSize().height - 40;
+              var chart = nv.models.line()
+                          .width(width)
+                          .height(height)
+                          .margin({top: 20, right: 20, bottom: 20, left: 20})
+              d3.select('#graph')
+                .attr('width', width)
+                .attr('height', height)
+                .datum(climateData())
+                .call(chart);
+              return chart;
+            },
+            callback: function(graph) {
+              window.onresize = function() {
+                var width = nv.utils.windowSize().width - 40,
+                    height = nv.utils.windowSize().height - 40,
+                    margin = graph.margin();
+                if (width < margin.left + margin.right + 20)
+                  width = margin.left + margin.right + 20;
+                if (height < margin.top + margin.bottom + 20)
+                  height = margin.top + margin.bottom + 20;
+                graph
+                   .width(width)
+                   .height(height);
+                d3.select('#graph')
+                  .attr('width', width)
+                  .attr('height', height)
+                  .call(graph);
+              };
+            }
+          });
+
+          function climateData() {
+            var temp = [],
+                humid = [];
+            for (var i = 0; i < 500; i++) {
+              temp.push({x: times_now[i], y: temperatures[i]});
+              humid.push({x: times_now[i], y: humidities[i]});
+            }
+            return [
+              {
+                values: temp,
+                key: "Temperature",
+                color: "red"
+              },
+              {
+                values: humid,
+                key: "Humidity",
+                color: "blue"
+              }
+            ];
+          }
+          // end nvd3
+        }
+      });
+    });
+    PubNub.ngHistory({
+      channel: $scope.channel,
+      count: 500
+    });
+  });
